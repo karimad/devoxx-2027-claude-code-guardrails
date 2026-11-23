@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Claude Code en équipe : ce qui a cassé, et les garde-fous qui ont tenu | Devoxx France 2027</title>
+<meta name="description" content="Support de la proposition Devoxx France 2027 : retour d'expérience sur l'usage quotidien de Claude Code et les garde-fous mis en place.">
+<meta name="robots" content="noindex">
+<style>
+  :root {
+    --ink: #101828;
+    --muted: #5B6677;
+    --bg: #FAFAFA;
+    --card: #FFFFFF;
+    --line: #E3E6EB;
+    --teal: #0F766E;
+    --teal-soft: #E2F1EF;
+    --amber: #B45309;
+    --amber-soft: #FBEBD6;
+    --red: #B42318;
+    --red-soft: #FBE4E1;
+    --dark: #0B0F14;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-snap-type: y mandatory; background: #000; }
+  body {
+    font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    color: var(--ink);
+    counter-reset: s;
+    background: #000;
+  }
+  .slide {
+    container-type: size;
+    position: relative;
+    width: min(100vw, 177.78vh);
+    aspect-ratio: 16 / 9;
+    margin: 0 auto;
+    background: var(--bg);
+    overflow: hidden;
+    scroll-snap-align: center;
+    counter-increment: s;
+    padding: 4.6cqw 5cqw 4cqw;
+    display: flex;
+    flex-direction: column;
+  }
+  .slide::after {
+    content: counter(s);
+    position: absolute;
+    right: 2.4cqw;
+    bottom: 1.6cqw;
+    font-size: 1.1cqw;
+    color: var(--muted);
+  }
+  .dark { background: var(--dark); color: #F4F6F8; }
+  .dark::after { color: #8A94A3; }
+
+  h1, h2 { font-weight: 700; line-height: 1.12; letter-spacing: -0.01em; }
+  h2 { font-size: 3.5cqw; max-width: 88cqw; }
+  .body { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 2cqw; margin-top: 2.4cqw; }
+  p, li { font-size: 2.4cqw; line-height: 1.38; }
+  .small { font-size: 1.4cqw; color: var(--muted); line-height: 1.4; }
+  a { color: var(--teal); text-decoration: none; border-bottom: 1px solid currentColor; }
+  .dark a { color: #5EEAD4; }
+
+  .title { justify-content: center; }
+  .title h1 { font-size: 5.2cqw; max-width: 82cqw; }
+  .title .sub { font-size: 2.5cqw; color: #5EEAD4; margin-top: 2.2cqw; }
+  .title .who { margin-top: 5cqw; font-size: 1.9cqw; line-height: 1.5; color: #C9D1DB; }
+  .title .who b { color: #fff; }
+
+  .grid { display: grid; gap: 2cqw; }
+  .g3 { grid-template-columns: repeat(3, 1fr); }
+  .g2 { grid-template-columns: repeat(2, 1fr); }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 1.2cqw;
+    padding: 2.2cqw;
+    box-shadow: 0 0.2cqw 0.8cqw rgba(16,24,40,0.05);
+  }
+  .card.hot { background: var(--teal-soft); border-color: var(--teal); }
+  .card.warn { background: var(--amber-soft); border-color: var(--amber); }
+  .card h3 { font-size: 2.8cqw; margin: 1.4cqw 0 0.8cqw; }
+  .card p { font-size: 2.2cqw; color: #2B3545; }
+  .row-card { display: flex; gap: 2cqw; align-items: flex-start; }
+  .row-card h3 { margin-top: 0; }
+  .ico {
+    flex: none;
+    width: 6cqw; height: 6cqw; border-radius: 50%;
+    background: var(--teal); display: grid; place-items: center;
+  }
+  .ico svg { width: 3.2cqw; height: 3.2cqw; stroke: #fff; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .ico.amber { background: var(--amber); }
+  .ico.red { background: var(--red); }
+
+  .flow { display: flex; align-items: center; gap: 1.2cqw; }
+  .node {
+    flex: 1; text-align: center; padding: 1.8cqw 1cqw;
+    border-radius: 1cqw; background: var(--card); border: 1.5px solid var(--teal);
+    font-size: 2.2cqw; font-weight: 600;
+  }
+  .node small { display: block; font-weight: 400; font-size: 1.7cqw; color: var(--muted); margin-top: 0.4cqw; }
+  .node.hot { background: var(--teal); color: #fff; }
+  .node.hot small { color: #D5EEEA; }
+  .node.warn { border-color: var(--amber); background: var(--amber-soft); }
+  .node.bad { border-color: var(--red); background: var(--red-soft); }
+  .arrow { flex: none; width: 3cqw; height: 0.25cqw; background: var(--ink); position: relative; }
+  .arrow::after {
+    content: ""; position: absolute; right: -0.1cqw; top: -0.5cqw;
+    border-left: 1cqw solid var(--ink); border-top: 0.62cqw solid transparent; border-bottom: 0.62cqw solid transparent;
+  }
+
+  code, .code { font-family: "SF Mono", Menlo, Consolas, "Courier New", monospace; }
+  .code {
+    background: var(--dark); color: #E6EDF3; border-radius: 1cqw; padding: 2cqw 2.4cqw;
+    font-size: 1.9cqw; line-height: 1.6;
+  }
+  .code pre { font: inherit; white-space: pre; }
+  .code .c { color: #8A94A3; } .code .bad { color: #FCA5A5; } .code .ok { color: #86EFAC; }
+  .label { display: inline-block; font-size: 1.6cqw; font-weight: 700; padding: 0.5cqw 1.2cqw; border-radius: 0.6cqw; margin-bottom: 1cqw; }
+  .label.bad { background: var(--red-soft); color: var(--red); }
+  .label.ok { background: var(--teal-soft); color: var(--teal); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 2.3cqw; }
+  th { text-align: left; font-weight: 700; padding: 1.2cqw 1cqw; border-bottom: 2px solid var(--ink); }
+  td { padding: 1.8cqw 1cqw; border-bottom: 1px solid var(--line); vertical-align: top; }
+  td:first-child { font-weight: 700; }
+  tr.hl td { background: var(--teal-soft); }
+
+  .principle { display: flex; gap: 2.2cqw; align-items: baseline; padding: 1.8cqw 0; border-bottom: 1px solid #263140; }
+  .principle:last-child { border-bottom: 0; }
+  .principle .n { font-size: 5.4cqw; font-weight: 700; color: #5EEAD4; width: 7cqw; flex: none; }
+  .principle p { font-size: 3cqw; color: #F4F6F8; }
+
+  .hint { position: fixed; right: 12px; bottom: 10px; color: #9AA5B4; font-size: 12px; z-index: 5; }
+
+  @page { size: 1920px 1080px; margin: 0; }
+  @media print {
+    html { background: none; scroll-snap-type: none; }
+    body { background: none; }
+    .slide { width: 1920px; height: 1080px; aspect-ratio: auto; break-after: page; page-break-after: always; }
+    .hint { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-tool" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></symbol>
+  <symbol id="i-cpu" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></symbol>
+  <symbol id="i-zap" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></symbol>
+  <symbol id="i-db" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></symbol>
+</svg>
+
+<!-- 1 -->
+<section class="slide dark title">
+  <h1>Claude Code en équipe : ce qui a cassé, et les garde-fous qui ont tenu</h1>
+  <div class="sub">Retour d'expérience après un usage quotidien</div>
+  <div class="who"><b>Karim Mehalebi</b>, Technical Lead<br>Devoxx France 2027 · proposition Tools-in-Action (30 min) · piste Development Practices</div>
+</section>
+
+<!-- 2 -->
+<section class="slide">
+  <h2>Mon installation : skills, sous-agents, hooks et mémoire</h2>
+  <div class="body">
+    <div class="grid g2">
+      <div class="card row-card"><div class="ico"><svg><use href="#i-tool"/></svg></div><div><h3>Skills</h3><p>Des flux répétés : revue de PR, génération de tests, vérification de contrats entre services.</p></div></div>
+      <div class="card row-card"><div class="ico"><svg><use href="#i-cpu"/></svg></div><div><h3>Sous-agents</h3><p>Des tâches isolées : recherche large dans le code, triage d'un incident d'observabilité.</p></div></div>
+      <div class="card row-card"><div class="ico"><svg><use href="#i-zap"/></svg></div><div><h3>Hooks</h3><p>Des règles exécutées à chaque fois, avant ou après une action.</p></div></div>
+      <div class="card row-card"><div class="ico"><svg><use href="#i-db"/></svg></div><div><h3>Mémoire</h3><p>Un wiki en markdown, relu au début d'une tâche et mis à jour à la fin.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- 3 -->
+<section class="slide">
+  <h2>Un sous-agent peut citer une ligne fausse ou annoncer un correctif absent</h2>
+  <div class="body">
+    <div class="flow">
+      <div class="node warn">Annonce du sous-agent<small>« tout est corrigé »</small></div>
+      <div class="arrow"></div>
+      <div class="node hot">Vérification<small>je rouvre le fichier ou la PR</small></div>
+      <div class="arrow"></div>
+      <div class="node bad">Écart constaté<small>ou confirmation, avec la source</small></div>
+    </div>
+    <p>Ma règle : aucun numéro de ligne, statut ou indisponibilité d'outil n'est relayé sans avoir été revérifié à la source.</p>
+  </div>
+</section>
+
+<!-- 4 -->
+<section class="slide">
+  <h2>Choisir le modèle selon la tâche maîtrise le coût</h2>
+  <div class="body">
+    <table>
+      <thead><tr><th>Tâche</th><th>Modèle</th></tr></thead>
+      <tbody>
+        <tr><td>Recherche, lecture, synthèse</td><td>Petit modèle (Haiku)</td></tr>
+        <tr class="hl"><td>Travail courant</td><td>Modèle intermédiaire (Sonnet)</td></tr>
+        <tr><td>Cas qui l'exige</td><td>Modèle le plus puissant (Opus), sur demande explicite</td></tr>
+      </tbody>
+    </table>
+    <p class="small" style="font-size:1.8cqw;">Pour un sous-agent, je précise le modèle à chaque appel, sinon il hérite de celui de la session.</p>
+  </div>
+</section>
+
+<!-- 5 -->
+<section class="slide">
+  <h2>Un fichier de consignes trop long coûte à chaque session</h2>
+  <div class="body">
+    <div class="grid g2">
+      <div class="card warn"><h3 style="margin-top:0">Fichier de consignes</h3><p>Chargé à chaque session. Je n'y garde que mes préférences et les règles de base.</p></div>
+      <div class="card hot"><h3 style="margin-top:0">Pages du wiki</h3><p>Lues à la demande : tables de routage, détails par domaine, procédures.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 6 -->
+<section class="slide">
+  <h2>Lire un gros fichier en entier gonfle le contexte pour toute la session</h2>
+  <div class="body">
+    <div class="grid g2">
+      <div><span class="label bad">Coûteux</span><div class="code"><pre><span class="bad">lire fichier (2000 lignes)
+pour retrouver une
+fonction de 10 lignes</span></pre></div></div>
+      <div><span class="label ok">Économe</span><div class="code"><pre><span class="ok">grep -n symbole fichier
+lire seulement la plage
+utile (décalage + limite)</span></pre></div></div>
+    </div>
+    <p>Le contenu lu reste dans le contexte et alourdit chaque tour suivant.</p>
+  </div>
+</section>
+
+<!-- 7 -->
+<section class="slide">
+  <h2>Un hook applique la règle qu'un prompt finit par oublier</h2>
+  <div class="body">
+    <div class="grid g3">
+      <div class="card"><div class="ico red"><svg><use href="#i-zap"/></svg></div><h3>Avant une action</h3><p>Bloque ce qui est interdit, par exemple un commentaire de PR de haut niveau.</p></div>
+      <div class="card"><div class="ico"><svg><use href="#i-zap"/></svg></div><h3>Après une action</h3><p>Rappelle l'étape suivante, par exemple replanifier la vérification d'une PR.</p></div>
+      <div class="card"><div class="ico"><svg><use href="#i-zap"/></svg></div><h3>En fin de session</h3><p>Met à jour le wiki avec les faits vérifiés de la session.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 8 -->
+<section class="slide">
+  <h2>Un wiki de faits vérifiés remplace mes rappels</h2>
+  <div class="body">
+    <div class="grid g3">
+      <div class="card"><div class="ico"><svg><use href="#i-check"/></svg></div><h3>Faits vérifiés</h3><p>Seul ce qui a été implémenté, testé ou confirmé entre dans le wiki. Jamais une hypothèse.</p></div>
+      <div class="card"><div class="ico"><svg><use href="#i-db"/></svg></div><h3>Structure simple</h3><p>Un index, une page par domaine, un journal des mises à jour.</p></div>
+      <div class="card hot"><div class="ico"><svg><use href="#i-tool"/></svg></div><h3>Le code gagne</h3><p>Si le code contredit une page, je corrige la page.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 9 -->
+<section class="slide">
+  <h2>Le mode automatique peut décider autrement d'une session à l'autre</h2>
+  <div class="body">
+    <div class="grid g2">
+      <div class="card warn"><h3 style="margin-top:0">Ce que j'ai constaté</h3><p>La même action peut être autorisée dans une session et bloquée dans une autre.</p></div>
+      <div class="card hot"><h3 style="margin-top:0">Ce que j'en tire</h3><p>Une règle de sécurité va dans un hook ou dans la CI, jamais dans un prompt.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 10 -->
+<section class="slide">
+  <h2>Une convention de code vérifiable devient une règle de lint en CI</h2>
+  <div class="body">
+    <div class="flow">
+      <div class="node">Commit</div>
+      <div class="arrow"></div>
+      <div class="node hot">Pre-commit<small>retour rapide</small></div>
+      <div class="arrow"></div>
+      <div class="node">Push</div>
+      <div class="arrow"></div>
+      <div class="node hot">CI<small>bloque la PR</small></div>
+    </div>
+    <p>Un assistant de code ne relit pas toujours le wiki. Il ne peut pas contourner une règle que la CI applique.</p>
+  </div>
+</section>
+
+<!-- 11 -->
+<section class="slide">
+  <h2>Ce que l'assistant fait seul, et ce qu'il me demande d'abord</h2>
+  <div class="body">
+    <table>
+      <thead><tr><th>Action</th><th>Autonomie</th></tr></thead>
+      <tbody>
+        <tr><td>Lire, chercher, analyser</td><td>Seul</td></tr>
+        <tr><td>Modifier du code</td><td>Seul, vérifié par les tests et la CI</td></tr>
+        <tr class="hl"><td>Publier, envoyer, pousser, supprimer</td><td>Après validation explicite</td></tr>
+        <tr class="hl"><td>Commentaires de PR et de tickets</td><td>Montrés avant publication</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- 12 -->
+<section class="slide dark">
+  <h2>À retenir</h2>
+  <div class="body" style="gap:0;">
+    <div class="principle"><div class="n">1</div><p>Vérifier à la source ce que racontent les sous-agents.</p></div>
+    <div class="principle"><div class="n">2</div><p>Ce qui doit toujours s'appliquer va dans un hook ou dans la CI.</p></div>
+    <div class="principle"><div class="n">3</div><p>Garder des consignes courtes et un modèle adapté à chaque tâche.</p></div>
+  </div>
+</section>
+
+<!-- 13 -->
+<section class="slide dark title">
+  <h1>Questions</h1>
+  <div class="who">
+    <b>Karim Mehalebi</b>, Technical Lead<br>
+    Liste de garde-fous : <a href="https://github.com/karimad/devoxx-2027-claude-code-guardrails/blob/main/template/garde-fous.md">github.com/karimad/devoxx-2027-claude-code-guardrails</a><br>
+    GitHub : <a href="https://github.com/karimad">github.com/karimad</a><br>
+    Medium : <a href="https://medium.com/@kmehaleb">medium.com/@kmehaleb</a>
+  </div>
+</section>
+
+<div class="hint">← → pour naviguer</div>
+<script>
+  (function () {
+    var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+    function current() {
+      var mid = window.innerHeight / 2, best = 0, d = 1e9;
+      slides.forEach(function (s, i) {
+        var r = s.getBoundingClientRect(), c = Math.abs(r.top + r.height / 2 - mid);
+        if (c < d) { d = c; best = i; }
+      });
+      return best;
+    }
+    function go(i) {
+      i = Math.max(0, Math.min(slides.length - 1, i));
+      slides[i].scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    document.addEventListener('keydown', function (e) {
+      if (['ArrowRight', 'ArrowDown', 'PageDown', ' '].indexOf(e.key) > -1) { e.preventDefault(); go(current() + 1); }
+      if (['ArrowLeft', 'ArrowUp', 'PageUp'].indexOf(e.key) > -1) { e.preventDefault(); go(current() - 1); }
+      if (e.key === 'Home') go(0);
+      if (e.key === 'End') go(slides.length - 1);
+    });
+  })();
+</script>
+</body>
+</html>
