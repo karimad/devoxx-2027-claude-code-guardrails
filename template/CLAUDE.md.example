@@ -1,0 +1,26 @@
+# Global instructions (example)
+
+Keep this file short: it is loaded into every session. Put long tables and per-domain details in separate pages that are read on demand.
+
+## Verification
+- Verify subagent claims before relaying them. Subagents read excerpts and can be wrong about line numbers or current state. Before quoting a `file:line` or a status ("all comments fixed", "tool X unavailable"), open the file or the live object and confirm.
+- Mark every factual claim in a drafted PR or issue comment as verified (with the source) or unverified.
+- Before claiming a capability does not exist, check the vendor's official documentation, not only local code.
+
+## Cost and context
+- Default model is the intermediate one. Pass an explicit `model` on every subagent call so it does not inherit a more expensive session model.
+- Use the small model for lookups, grep searches and bash-only work. Use the most powerful model only when I ask for it.
+- Grep before reading a file you have not seen. For files over about 200 lines, find the symbol with `grep -n`, then read only that range with an offset and a limit.
+- During iteration, run only the affected tests. Run the full suite before staging or pushing.
+
+## Workflow
+- Branch from the up-to-date default branch before any edit. If the working tree is not clean, stash first.
+- Fixes for an open PR go on that PR's existing branch.
+- Amend while iterating on the same logical change. Create a new commit only for a genuinely new step.
+- Never push, post, send or delete without my explicit confirmation. Show comments and ticket updates in the conversation first.
+- Edit files with the Edit tool, not with `sed` or scripts. Bash is for running commands.
+- Answer questions before acting: do not edit files when I only asked a question.
+
+## Memory
+- A personal wiki lives in `~/wiki`. Read its index before starting work in a known domain.
+- Record only facts that were verified, implemented or tested in the session. If the code contradicts a wiki page, trust the code and flag the discrepancy.
